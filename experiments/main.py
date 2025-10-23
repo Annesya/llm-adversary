@@ -6,6 +6,8 @@ import torch.multiprocessing as mp
 from absl import app
 from ml_collections import config_flags
 
+import sys
+# sys.path.append('/orcd/data/jhm/001/annesyab/LLM/AI_safety/llm-attacks')
 from llm_attacks import get_goals_and_targets, get_workers
 
 _CONFIG = config_flags.DEFINE_config_file('config')
@@ -37,11 +39,30 @@ def main(_):
         "AP": attack_lib.AttackPrompt,
         "PM": attack_lib.PromptManager,
         "MPA": attack_lib.MultiPromptAttack,
+        "MPAC": attack_lib.MultiPromptAttackCoherence,
     }
 
     timestamp = time.strftime("%Y%m%d-%H:%M:%S")
     if params.transfer:
         attack = attack_lib.ProgressiveMultiPromptAttack(
+            train_goals,
+            train_targets,
+            workers,
+            progressive_models=params.progressive_models,
+            progressive_goals=params.progressive_goals,
+            control_init=params.control_init,
+            logfile=f"{params.result_prefix}_{timestamp}.json",
+            managers=managers,
+            test_goals=test_goals,
+            test_targets=test_targets,
+            test_workers=test_workers,
+            mpa_deterministic=params.gbda_deterministic,
+            mpa_lr=params.lr,
+            mpa_batch_size=params.batch_size,
+            mpa_n_steps=params.n_steps,
+        )
+    elif params.transfer_coherence:
+        attack = attack_lib.ProgressiveMultiPromptAttackCoherence(
             train_goals,
             train_targets,
             workers,
