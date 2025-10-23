@@ -63,8 +63,8 @@ _test_prefixes = [
 ]
 
 _MODELS = {
-    "Vicuna-7B": ["/DIR/vicuna/vicuna-7b-v1.3", {"use_fast": False}, "vicuna", 64],
-    "Vicuna-13B": ["/DIR/vicuna/vicuna-13b-v1.3", {"use_fast": False}, "vicuna", 64], 
+    "Vicuna-7B": ["/orcd/data/jhm/001/annesyab/LLM/hugging_face_cache/hub/models--lmsys--vicuna-7b-v1.5/snapshots/3321f76e3f527bd14065daf69dad9344000a201d", {"use_fast": False}, "vicuna", 64],
+    "Vicuna-13B": ["/orcd/data/jhm/001/annesyab/LLM/hugging_face_cache/hub/models--lmsys--vicuna-13b-v1.5/snapshots/c8327bf999adbd2efe2e75f6509fa01436100dc2", {"use_fast": False}, "vicuna", 64], 
     "Stable-Vicuna-13B": ["TheBloke/stable-vicuna-13B-HF", {"use_fast": False}, "vicuna", 64],
     "Pythia-12B": ["OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5", {"use_fast": True}, "oasst_pythia", 64],
     "Falcon-7B": ["tiiuae/falcon-7b-instruct", {"use_fast": True}, "falcon-7b", 64],
@@ -76,6 +76,7 @@ _MODELS = {
 def main(_):
 
     params = _CONFIG.value
+    print(params)
 
     with open(params.logfile, 'r') as f:
         log = json.load(f)
