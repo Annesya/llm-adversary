@@ -7,7 +7,7 @@ def get_config():
     
     config = default_config()
 
-    config.transfer = True
+    config.transfer_coherence = True
     config.logfile = ""
 
     config.progressive_goals = False
@@ -28,5 +28,6 @@ def get_config():
     config.conversation_templates = ["vicuna", "vicuna"]
     # config.devices = ["cuda:0", "cuda:1"]
     config.devices = ["cuda:0", "cuda:1"]
+    config.perplexity_weight=0.5
 
     return config
