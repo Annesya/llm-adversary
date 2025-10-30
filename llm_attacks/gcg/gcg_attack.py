@@ -304,51 +304,116 @@ class GCGMultiPromptAttackCoherence(MultiPromptAttackCoherence):
 
         return next_control, cand_loss.item() / len(self.prompts[0]) / len(self.workers)
 
+    # def calculate_perplexity_loss(self, prompt, logits, ids, cand):
+    #     """
+    #     Calculate perplexity loss for the control/adversarial suffix to encourage coherence.
+    #     Lower perplexity indicates better coherence.
+    #     """
+    #     import torch.nn.functional as F
+        
+    #     # Get the tokenizer from the worker (assuming first worker's tokenizer)
+    #     tokenizer = self.workers[0].tokenizer
+        
+    #     # Tokenize the candidate control string to get its length
+    #     # print('Candidate control string:', cand)
+    #     # print the goal component of the prompt
+    #     # print('Goal component of the prompt:', prompt.goal_str)
+    #     cand_new = []
+    #     for i in range(len(cand)):
+    #         temp_cand = prompt.goal_str + ' ' + cand[i]
+    #         cand_new.append(temp_cand)
+    #     # cand_new = ' '.join(cand_new)
+    #     # print('Candidate goal + control string:', cand_new)
+    #     cand_tokens = tokenizer(cand_new).input_ids
+        
+    #     # Modified on 10/30/2025
+    #     # if tokenizer.bos_token_id in cand_tokens:
+    #     #     cand_tokens = cand_tokens[1:]  # Remove BOS token if present
+    #     # cand_length = len(cand_tokens)
+    #     cand_lengths = []
+    #     for toks in cand_tokens_list:
+    #         if hasattr(tokenizer, "bos_token_id") and toks and toks[0] == tokenizer.bos_token_id:
+    #             toks = toks[1:]
+    #         cand_lengths.append(len(toks))
+        
+    #     print('Candidate tokens length:', cand_length)
+        
+    #     if cand_length == 0:
+    #         return torch.zeros(logits.shape[0], device=logits.device)
+        
+    #     # Find the position where the control suffix starts in the full sequence
+    #     # This depends on your prompt structure - you may need to adjust this
+    #     # control_start_idx = prompt._control_slice.start if hasattr(prompt, '_control_slice') else -cand_length --> this is the original code
+    #     control_start_idx = 0 # take the prompt and the control string as a whole
+    #     control_end_idx = control_start_idx + cand_length
+        
+    #     # Extract logits and target tokens for the control suffix
+    #     if control_start_idx >= 0 and control_end_idx <= logits.shape[1]:
+    #         # Logits for predicting the control tokens (shifted by 1 for next-token prediction)
+    #         control_logits = logits[:, control_start_idx:control_end_idx-1, :]  # [batch, seq_len-1, vocab]
+    #         control_targets = ids[:, control_start_idx+1:control_end_idx]      # [batch, seq_len-1]
+            
+    #         # Calculate cross-entropy loss for the control tokens
+    #         control_logits_flat = control_logits.reshape(-1, control_logits.size(-1))
+    #         control_targets_flat = control_targets.reshape(-1)
+            
+    #         # Calculate per-token cross-entropy
+    #         ce_loss = F.cross_entropy(control_logits_flat, control_targets_flat, reduction='none')
+    #         ce_loss = ce_loss.reshape(control_logits.shape[0], -1)  # [batch, seq_len-1]
+            
+    #         # Average cross-entropy over sequence length to get perplexity loss
+    #         # We use the cross-entropy directly as the perplexity loss (since exp(ce) = perplexity)
+    #         # This encourages lower cross-entropy, which corresponds to lower perplexity
+    #         perplexity_loss = ce_loss.mean(dim=-1)  # [batch]
+            
+    #     else:
+    #         # Fallback if we can't extract control tokens properly
+    #         perplexity_loss = torch.zeros(logits.shape[0], device=logits.device)
+        
+    #     return perplexity_loss
+    
     def calculate_perplexity_loss(self, prompt, logits, ids, cand):
         """
-        Calculate perplexity loss for the control/adversarial suffix to encourage coherence.
-        Lower perplexity indicates better coherence.
+        Compute perplexity loss for the entire sequence (goal+control) per batch example.
+        logits: Tensor [batch, seq_len, vocab]
+        ids:    Tensor [batch, seq_len]
+        cand:   list of candidate strings with batch size == logits.shape[0]
         """
+        import torch
         import torch.nn.functional as F
-        
-        # Get the tokenizer from the worker (assuming first worker's tokenizer)
+
         tokenizer = self.workers[0].tokenizer
+
+        # For (optional) verification, reconstruct the input that produced logits/ids:
+        # batch_strings = [prompt.goal_str + ' ' + c for c in cand]
+
+        # For each example in the batch:
+        batch_size = logits.size(0)
+        ce_losses = []
+        for i in range(batch_size):
+            # Tokenize full string to get reference length and adjust for special tokens if needed
+            full_str = prompt.goal_str + ' ' + cand[i]
+            toks = tokenizer(full_str, add_special_tokens=True).input_ids  # +special tokens?
+            if hasattr(tokenizer, "bos_token_id") and toks and toks[0] == tokenizer.bos_token_id:
+                toks = toks[1:]
+            seq_len = len(toks)
+
+            # logits/ids might be longer than toks due to padding; clip to tokenized length
+            if seq_len < 2:
+                # Can't compute next-token loss on sequence <2
+                ce_losses.append(torch.tensor(0.0, device=logits.device))
+                continue
+
+            l = seq_len
+            # Prediction: logits for predicting tokens 1...l-1; targets: tokens 1...l-1
+            # Usually, logits align with input tokens [0:l-1] -> predicting targets [1:l]
+            example_logits = logits[i, 0:l-1, :]   # [seq_len-1, vocab]
+            example_targets = ids[i, 1:l]          # [seq_len-1]
+
+            # Cross-entropy loss (averaged over non-padded tokens)
+            ce_loss = F.cross_entropy(example_logits, example_targets, reduction='mean')
+            ce_losses.append(ce_loss)
         
-        # Tokenize the candidate control string to get its length
-        cand_tokens = tokenizer(cand).input_ids
-        if tokenizer.bos_token_id in cand_tokens:
-            cand_tokens = cand_tokens[1:]  # Remove BOS token if present
-        cand_length = len(cand_tokens)
-        
-        if cand_length == 0:
-            return torch.zeros(logits.shape[0], device=logits.device)
-        
-        # Find the position where the control suffix starts in the full sequence
-        # This depends on your prompt structure - you may need to adjust this
-        control_start_idx = prompt._control_slice.start if hasattr(prompt, '_control_slice') else -cand_length
-        control_end_idx = control_start_idx + cand_length
-        
-        # Extract logits and target tokens for the control suffix
-        if control_start_idx >= 0 and control_end_idx <= logits.shape[1]:
-            # Logits for predicting the control tokens (shifted by 1 for next-token prediction)
-            control_logits = logits[:, control_start_idx:control_end_idx-1, :]  # [batch, seq_len-1, vocab]
-            control_targets = ids[:, control_start_idx+1:control_end_idx]      # [batch, seq_len-1]
-            
-            # Calculate cross-entropy loss for the control tokens
-            control_logits_flat = control_logits.reshape(-1, control_logits.size(-1))
-            control_targets_flat = control_targets.reshape(-1)
-            
-            # Calculate per-token cross-entropy
-            ce_loss = F.cross_entropy(control_logits_flat, control_targets_flat, reduction='none')
-            ce_loss = ce_loss.reshape(control_logits.shape[0], -1)  # [batch, seq_len-1]
-            
-            # Average cross-entropy over sequence length to get perplexity loss
-            # We use the cross-entropy directly as the perplexity loss (since exp(ce) = perplexity)
-            # This encourages lower cross-entropy, which corresponds to lower perplexity
-            perplexity_loss = ce_loss.mean(dim=-1)  # [batch]
-            
-        else:
-            # Fallback if we can't extract control tokens properly
-            perplexity_loss = torch.zeros(logits.shape[0], device=logits.device)
-        
+        # Stack to tensor [batch]
+        perplexity_loss = torch.stack(ce_losses)
         return perplexity_loss
