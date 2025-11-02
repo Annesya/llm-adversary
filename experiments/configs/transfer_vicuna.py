@@ -13,13 +13,13 @@ def get_config():
     config.progressive_goals = False
     config.stop_on_success = False
     config.tokenizer_paths = [
-        "/orcd/data/jhm/001/annesyab/LLM/hugging_face_cache/hub/models--lmsys--vicuna-7b-v1.5/snapshots/3321f76e3f527bd14065daf69dad9344000a201d",
-        "/orcd/data/jhm/001/annesyab/LLM/hugging_face_cache/hub/models--lmsys--vicuna-13b-v1.5/snapshots/c8327bf999adbd2efe2e75f6509fa01436100dc2"
+        "/home/ubuntu/models/vicuna-7b-v1.3",
+        "/home/ubuntu/models/vicuna-13b-v1.3"
     ]
     config.tokenizer_kwargs = [{"use_fast": False}, {"use_fast": False}]
     config.model_paths = [
-        "/orcd/data/jhm/001/annesyab/LLM/hugging_face_cache/hub/models--lmsys--vicuna-7b-v1.5/snapshots/3321f76e3f527bd14065daf69dad9344000a201d",
-        "/orcd/data/jhm/001/annesyab/LLM/hugging_face_cache/hub/models--lmsys--vicuna-13b-v1.5/snapshots/c8327bf999adbd2efe2e75f6509fa01436100dc2"
+        "/home/ubuntu/models/vicuna-7b-v1.3",
+        "/home/ubuntu/models/vicuna-13b-v1.3"
     ]
     config.model_kwargs = [
         {"low_cpu_mem_usage": True, "use_cache": False},
@@ -27,6 +27,6 @@ def get_config():
     ]
     config.conversation_templates = ["vicuna", "vicuna"]
     # config.devices = ["cuda:0", "cuda:1"]
-    config.devices = ["cuda:0", "cuda:1"]
+    config.devices = ["cuda:0"]
 
     return config
