@@ -43,7 +43,7 @@ def main(_):
     }
 
     timestamp = time.strftime("%Y%m%d-%H:%M:%S")
-    if params.transfer:
+    if getattr(params, 'transfer', False):
         attack = attack_lib.ProgressiveMultiPromptAttack(
             train_goals,
             train_targets,
@@ -61,7 +61,7 @@ def main(_):
             mpa_batch_size=params.batch_size,
             mpa_n_steps=params.n_steps,
         )
-    elif params.transfer_coherence:
+    elif getattr(params, 'transfer_coherence', False):
         attack = attack_lib.ProgressiveMultiPromptAttackCoherence(
             train_goals,
             train_targets,
@@ -79,7 +79,7 @@ def main(_):
             mpa_batch_size=params.batch_size,
             mpa_n_steps=params.n_steps,
         )
-    elif params.individual_coherence:
+    elif getattr(params, 'individual_coherence', False):
         attack = attack_lib.IndividualPromptAttackCoherence(
             train_goals,
             train_targets,
